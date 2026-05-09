@@ -26,6 +26,7 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.kafka:spring-kafka'
+    implementation 'org.flywaydb:flyway-core'
 
     developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
 
@@ -33,6 +34,7 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
 
     runtimeOnly 'com.mysql:mysql-connector-j'
+    runtimeOnly 'org.flywaydb:flyway-mysql'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.kafka:spring-kafka-test'
