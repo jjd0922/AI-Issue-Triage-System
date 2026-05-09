@@ -42,7 +42,7 @@ public class IssueAnalysisService {
 
         try {
             List<KnowledgeSearchResult> references = knowledgeSearchPort.search(
-                    issue.getTitle() + "\n" + issue.getContent(),
+                    issue.getTitle(),
                     KNOWLEDGE_SEARCH_LIMIT
             );
             IssueAnalysisResult aiResult = aiAnalysisPort.analyze(new AnalyzeIssueCommand(
