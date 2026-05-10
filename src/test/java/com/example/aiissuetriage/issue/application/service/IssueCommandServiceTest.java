@@ -2,74 +2,123 @@ package com.example.aiissuetriage.issue.application.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.example.aiissuetriage.issue.application.command.CreateIssueCommand;
 import com.example.aiissuetriage.issue.application.event.IssueAnalysisRequestedEvent;
 import com.example.aiissuetriage.issue.application.exception.InvalidRetryConditionException;
 import com.example.aiissuetriage.issue.application.port.AnalysisCachePort;
-import com.example.aiissuetriage.issue.application.result.IssueAnalysisResult;
+import com.example.aiissuetriage.issue.application.port.IssueRepositoryPort;
 import com.example.aiissuetriage.issue.application.result.RetryIssueAnalysisResult;
 import com.example.aiissuetriage.issue.domain.Issue;
 import com.example.aiissuetriage.issue.domain.IssueSource;
 import com.example.aiissuetriage.issue.domain.IssueStatus;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
 
+@ExtendWith(MockitoExtension.class)
 class IssueCommandServiceTest {
 
-    private final InMemoryIssueRepository issueRepository = new InMemoryIssueRepository();
-    private final RecordingApplicationEventPublisher eventPublisher = new RecordingApplicationEventPublisher();
-    private final RecordingAnalysisCache analysisCache = new RecordingAnalysisCache();
-    private final IssueCommandService service = new IssueCommandService(
-            issueRepository,
-            analysisCache,
-            eventPublisher
-    );
+    @Mock
+    private IssueRepositoryPort issueRepositoryPort;
+
+    @Mock
+    private AnalysisCachePort analysisCachePort;
+
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
+
+    @InjectMocks
+    private IssueCommandService issueCommandService;
 
     @Test
-    void 이슈를_등록하면_분석_요청_상태로_저장하고_이벤트를_발행한다() {
-        var result = service.createIssue(new CreateIssueCommand(
+    @DisplayName("createIssue 는 이슈를 분석 요청 상태로 저장하고 분석 요청 이벤트를 발행한다")
+    void createIssue_whenValidCommand_thenSaveAnalysisRequestedIssueAndPublishEvent() {
+        when(issueRepositoryPort.save(any(Issue.class)))
+                .thenAnswer(invocation -> withIdIfNew(invocation.getArgument(0)));
+
+        var result = issueCommandService.createIssue(new CreateIssueCommand(
                 "결제 오류",
                 "주문이 생성되지 않습니다.",
                 IssueSource.CUSTOMER_SERVICE
         ));
 
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
+        IssueAnalysisRequestedEvent event = (IssueAnalysisRequestedEvent) eventCaptor.getValue();
+
         assertThat(result.issueId()).isEqualTo(1L);
         assertThat(result.status()).isEqualTo(IssueStatus.ANALYSIS_REQUESTED);
-        assertThat(eventPublisher.events).hasSize(1);
-        assertThat(eventPublisher.events.get(0).issueId()).isEqualTo(1L);
-        assertThat(eventPublisher.events.get(0).title()).isEqualTo("결제 오류");
+        assertThat(event.issueId()).isEqualTo(1L);
+        assertThat(event.title()).isEqualTo("결제 오류");
+        assertThat(event.requestedAt()).isNotNull();
     }
 
     @Test
-    void 분석_실패_상태의_이슈는_재시도할_수_있다() {
-        Issue issue = issueRepository.save(restoredIssue(IssueStatus.ANALYSIS_FAILED));
+    @DisplayName("retryAnalysis 는 분석 실패 상태이면 캐시를 삭제하고 분석 요청 이벤트를 발행한다")
+    void retryAnalysis_whenIssueAnalysisFailed_thenEvictCacheAndPublishEvent() {
+        Issue issue = restoredIssue(1L, IssueStatus.ANALYSIS_FAILED);
+        when(issueRepositoryPort.findById(1L)).thenReturn(Optional.of(issue));
+        when(issueRepositoryPort.save(any(Issue.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
-        RetryIssueAnalysisResult result = service.retryAnalysis(issue.getId());
+        RetryIssueAnalysisResult result = issueCommandService.retryAnalysis(1L);
+
+        ArgumentCaptor<Object> eventCaptor = ArgumentCaptor.forClass(Object.class);
+        verify(analysisCachePort).evict(1L);
+        verify(applicationEventPublisher).publishEvent(eventCaptor.capture());
+        IssueAnalysisRequestedEvent event = (IssueAnalysisRequestedEvent) eventCaptor.getValue();
 
         assertThat(result.status()).isEqualTo(IssueStatus.ANALYSIS_REQUESTED);
         assertThat(result.requestedAt()).isNotNull();
-        assertThat(eventPublisher.events).hasSize(1);
-        assertThat(analysisCache.evictedIssueIds).containsExactly(issue.getId());
+        assertThat(event.issueId()).isEqualTo(1L);
     }
 
     @Test
-    void 분석_실패가_아닌_상태는_재시도할_수_없다() {
-        Issue issue = issueRepository.save(restoredIssue(IssueStatus.ANALYZED));
+    @DisplayName("retryAnalysis 는 분석 실패 상태가 아니면 예외를 던진다")
+    void retryAnalysis_whenIssueIsNotAnalysisFailed_thenThrowException() {
+        when(issueRepositoryPort.findById(1L))
+                .thenReturn(Optional.of(restoredIssue(1L, IssueStatus.ANALYZED)));
 
-        assertThatThrownBy(() -> service.retryAnalysis(issue.getId()))
+        assertThatThrownBy(() -> issueCommandService.retryAnalysis(1L))
                 .isInstanceOf(InvalidRetryConditionException.class)
                 .hasMessageContaining("Cannot retry issue analysis");
     }
 
-    private Issue restoredIssue(IssueStatus status) {
+    private Issue withIdIfNew(Issue issue) {
+        if (issue.getId() != null) {
+            return issue;
+        }
+        return Issue.restore(
+                1L,
+                issue.getTitle(),
+                issue.getContent(),
+                issue.getSource(),
+                issue.getStatus(),
+                issue.getFailureReason(),
+                issue.getCreatedAt(),
+                issue.getUpdatedAt(),
+                issue.getAnalysisRequestedAt(),
+                issue.getAnalysisStartedAt(),
+                issue.getAnalysisCompletedAt(),
+                issue.getClosedAt()
+        );
+    }
+
+    private Issue restoredIssue(Long id, IssueStatus status) {
         LocalDateTime now = LocalDateTime.of(2026, 5, 9, 10, 0);
         return Issue.restore(
-                null,
+                id,
                 "결제 오류",
                 "주문이 생성되지 않습니다.",
                 IssueSource.CUSTOMER_SERVICE,
@@ -82,36 +131,5 @@ class IssueCommandServiceTest {
                 null,
                 null
         );
-    }
-
-    private static class RecordingApplicationEventPublisher implements ApplicationEventPublisher {
-
-        private final List<IssueAnalysisRequestedEvent> events = new ArrayList<>();
-
-        @Override
-        public void publishEvent(Object event) {
-            if (event instanceof IssueAnalysisRequestedEvent issueAnalysisRequestedEvent) {
-                events.add(issueAnalysisRequestedEvent);
-            }
-        }
-    }
-
-    private static class RecordingAnalysisCache implements AnalysisCachePort {
-
-        private final List<Long> evictedIssueIds = new ArrayList<>();
-
-        @Override
-        public Optional<IssueAnalysisResult> get(Long issueId) {
-            return Optional.empty();
-        }
-
-        @Override
-        public void put(Long issueId, IssueAnalysisResult result) {
-        }
-
-        @Override
-        public void evict(Long issueId) {
-            evictedIssueIds.add(issueId);
-        }
     }
 }
