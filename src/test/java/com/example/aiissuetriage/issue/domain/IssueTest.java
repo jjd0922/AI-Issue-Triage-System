@@ -4,12 +4,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDateTime;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class IssueTest {
 
     @Test
-    void 신규_이슈는_REGISTERED_상태로_생성된다() {
+    @DisplayName("create 는 신규 이슈를 REGISTERED 상태로 생성한다")
+    void create_whenValidInput_thenCreateRegisteredIssue() {
         Issue issue = Issue.create("결제 오류", "주문이 생성되지 않습니다.", IssueSource.CUSTOMER_SERVICE);
 
         assertThat(issue.getStatus()).isEqualTo(IssueStatus.REGISTERED);
@@ -21,7 +23,8 @@ class IssueTest {
     }
 
     @Test
-    void 등록된_이슈는_분석_요청_상태로_변경할_수_있다() {
+    @DisplayName("requestAnalysis 는 등록된 이슈를 분석 요청 상태로 변경한다")
+    void requestAnalysis_whenIssueIsRegistered_thenChangeToAnalysisRequested() {
         Issue issue = newIssue(IssueStatus.REGISTERED);
 
         issue.requestAnalysis();
@@ -32,7 +35,8 @@ class IssueTest {
     }
 
     @Test
-    void 분석_실패_상태의_이슈는_분석_요청_상태로_재요청할_수_있다() {
+    @DisplayName("requestAnalysis 는 분석 실패 이슈를 분석 요청 상태로 재요청한다")
+    void requestAnalysis_whenIssueAnalysisFailed_thenChangeToAnalysisRequested() {
         Issue issue = newIssue(IssueStatus.ANALYSIS_FAILED, "temporary failure");
 
         issue.requestAnalysis();
@@ -42,7 +46,8 @@ class IssueTest {
     }
 
     @Test
-    void 분석_요청_상태의_이슈는_분석_중_상태로_변경할_수_있다() {
+    @DisplayName("startAnalysis 는 분석 요청 이슈를 분석 중 상태로 변경한다")
+    void startAnalysis_whenIssueAnalysisRequested_thenChangeToAnalyzing() {
         Issue issue = newIssue(IssueStatus.ANALYSIS_REQUESTED);
 
         issue.startAnalysis();
@@ -52,7 +57,8 @@ class IssueTest {
     }
 
     @Test
-    void 분석_중_상태의_이슈는_분석_완료_상태로_변경할_수_있다() {
+    @DisplayName("completeAnalysis 는 분석 중 이슈를 분석 완료 상태로 변경한다")
+    void completeAnalysis_whenIssueAnalyzing_thenChangeToAnalyzed() {
         Issue issue = newIssue(IssueStatus.ANALYZING);
 
         issue.completeAnalysis();
@@ -63,7 +69,8 @@ class IssueTest {
     }
 
     @Test
-    void 분석_요청_상태의_이슈는_분석_실패_상태로_변경할_수_있다() {
+    @DisplayName("failAnalysis 는 분석 요청 이슈를 분석 실패 상태로 변경한다")
+    void failAnalysis_whenIssueAnalysisRequested_thenChangeToAnalysisFailed() {
         Issue issue = newIssue(IssueStatus.ANALYSIS_REQUESTED);
 
         issue.failAnalysis("AI adapter timeout");
@@ -73,7 +80,8 @@ class IssueTest {
     }
 
     @Test
-    void 분석_중_상태의_이슈는_분석_실패_상태로_변경할_수_있다() {
+    @DisplayName("failAnalysis 는 분석 중 이슈를 분석 실패 상태로 변경한다")
+    void failAnalysis_whenIssueAnalyzing_thenChangeToAnalysisFailed() {
         Issue issue = newIssue(IssueStatus.ANALYZING);
 
         issue.failAnalysis("AI adapter timeout");
@@ -83,7 +91,8 @@ class IssueTest {
     }
 
     @Test
-    void 분석_완료_상태의_이슈는_종료할_수_있다() {
+    @DisplayName("close 는 분석 완료 이슈를 종료 상태로 변경한다")
+    void close_whenIssueAnalyzed_thenChangeToClosed() {
         Issue issue = newIssue(IssueStatus.ANALYZED);
 
         issue.close();
@@ -93,7 +102,8 @@ class IssueTest {
     }
 
     @Test
-    void 분석_실패_상태의_이슈는_종료할_수_있다() {
+    @DisplayName("close 는 분석 실패 이슈를 종료 상태로 변경한다")
+    void close_whenIssueAnalysisFailed_thenChangeToClosed() {
         Issue issue = newIssue(IssueStatus.ANALYSIS_FAILED);
 
         issue.close();
@@ -103,7 +113,8 @@ class IssueTest {
     }
 
     @Test
-    void 허용되지_않은_상태에서_분석_요청하면_예외가_발생한다() {
+    @DisplayName("requestAnalysis 는 허용되지 않은 상태이면 예외를 던진다")
+    void requestAnalysis_whenIssueStatusIsNotAllowed_thenThrowException() {
         Issue issue = newIssue(IssueStatus.ANALYZED);
 
         assertThatThrownBy(issue::requestAnalysis)
@@ -112,7 +123,8 @@ class IssueTest {
     }
 
     @Test
-    void 허용되지_않은_상태에서_분석을_시작하면_예외가_발생한다() {
+    @DisplayName("startAnalysis 는 허용되지 않은 상태이면 예외를 던진다")
+    void startAnalysis_whenIssueStatusIsNotAllowed_thenThrowException() {
         Issue issue = newIssue(IssueStatus.REGISTERED);
 
         assertThatThrownBy(issue::startAnalysis)
@@ -121,7 +133,8 @@ class IssueTest {
     }
 
     @Test
-    void 허용되지_않은_상태에서_분석을_완료하면_예외가_발생한다() {
+    @DisplayName("completeAnalysis 는 허용되지 않은 상태이면 예외를 던진다")
+    void completeAnalysis_whenIssueStatusIsNotAllowed_thenThrowException() {
         Issue issue = newIssue(IssueStatus.ANALYSIS_REQUESTED);
 
         assertThatThrownBy(issue::completeAnalysis)
@@ -130,7 +143,8 @@ class IssueTest {
     }
 
     @Test
-    void 허용되지_않은_상태에서_분석_실패로_변경하면_예외가_발생한다() {
+    @DisplayName("failAnalysis 는 허용되지 않은 상태이면 예외를 던진다")
+    void failAnalysis_whenIssueStatusIsNotAllowed_thenThrowException() {
         Issue issue = newIssue(IssueStatus.ANALYZED);
 
         assertThatThrownBy(() -> issue.failAnalysis("failed"))
@@ -139,7 +153,8 @@ class IssueTest {
     }
 
     @Test
-    void 허용되지_않은_상태에서_종료하면_예외가_발생한다() {
+    @DisplayName("close 는 허용되지 않은 상태이면 예외를 던진다")
+    void close_whenIssueStatusIsNotAllowed_thenThrowException() {
         Issue issue = newIssue(IssueStatus.ANALYZING);
 
         assertThatThrownBy(issue::close)
@@ -148,7 +163,8 @@ class IssueTest {
     }
 
     @Test
-    void 실패_사유는_빈_값일_수_없다() {
+    @DisplayName("failAnalysis 는 실패 사유가 비어 있으면 예외를 던진다")
+    void failAnalysis_whenReasonIsBlank_thenThrowException() {
         Issue issue = newIssue(IssueStatus.ANALYZING);
 
         assertThatThrownBy(() -> issue.failAnalysis(" "))
