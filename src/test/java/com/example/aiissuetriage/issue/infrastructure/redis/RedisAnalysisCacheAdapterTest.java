@@ -12,26 +12,40 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Spy;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
 @SuppressWarnings("unchecked")
+@ExtendWith(MockitoExtension.class)
 class RedisAnalysisCacheAdapterTest {
 
-    private final StringRedisTemplate redisTemplate = Mockito.mock(StringRedisTemplate.class);
-    private final ValueOperations<String, String> valueOperations = Mockito.mock(ValueOperations.class);
-    private final ObjectMapper objectMapper = new ObjectMapper()
+    @Mock
+    private StringRedisTemplate redisTemplate;
+
+    @Mock
+    private ValueOperations<String, String> valueOperations;
+
+    @Spy
+    private ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
-    private final RedisAnalysisCacheAdapter adapter = new RedisAnalysisCacheAdapter(redisTemplate, objectMapper);
+
+    @InjectMocks
+    private RedisAnalysisCacheAdapter adapter;
 
     @Test
-    void 캐시에서_분석_결과를_조회한다() throws Exception {
+    @DisplayName("get 은 캐시에서 분석 결과를 조회한다")
+    void get_whenCachedValueExists_thenReturnAnalysisResult() throws Exception {
         IssueAnalysisResult cachedResult = result();
+        String cachedJson = objectMapper.writeValueAsString(cachedResult);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        when(valueOperations.get("issue:analysis:1"))
-                .thenReturn(objectMapper.writeValueAsString(cachedResult));
+        when(valueOperations.get("issue:analysis:1")).thenReturn(cachedJson);
 
         Optional<IssueAnalysisResult> result = adapter.get(1L);
 
@@ -39,7 +53,8 @@ class RedisAnalysisCacheAdapterTest {
     }
 
     @Test
-    void 캐시가_없으면_empty를_반환한다() {
+    @DisplayName("get 은 캐시가 없으면 empty 를 반환한다")
+    void get_whenCacheMiss_thenReturnEmpty() {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get("issue:analysis:1")).thenReturn(null);
 
@@ -49,21 +64,24 @@ class RedisAnalysisCacheAdapterTest {
     }
 
     @Test
-    void 분석_결과를_1시간_TTL로_저장한다() throws Exception {
+    @DisplayName("put 은 분석 결과를 1시간 TTL 로 저장한다")
+    void put_whenAnalysisResultProvided_thenStoreWithOneHourTtl() throws Exception {
         IssueAnalysisResult result = result();
+        String expectedJson = objectMapper.writeValueAsString(result);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
 
         adapter.put(1L, result);
 
         verify(valueOperations).set(
                 "issue:analysis:1",
-                objectMapper.writeValueAsString(result),
+                expectedJson,
                 RedisAnalysisCacheAdapter.TTL
         );
     }
 
     @Test
-    void 분석_결과_캐시를_삭제한다() {
+    @DisplayName("evict 는 분석 결과 캐시를 삭제한다")
+    void evict_whenIssueIdProvided_thenDeleteCacheKey() {
         adapter.evict(1L);
 
         verify(redisTemplate).delete("issue:analysis:1");
