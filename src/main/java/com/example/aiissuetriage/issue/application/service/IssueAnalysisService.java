@@ -11,6 +11,7 @@ import com.example.aiissuetriage.issue.application.result.IssueAnalysisResult;
 import com.example.aiissuetriage.issue.application.result.KnowledgeSearchResult;
 import com.example.aiissuetriage.issue.domain.Issue;
 import com.example.aiissuetriage.issue.domain.IssueAnalysis;
+import com.example.aiissuetriage.issue.domain.IssueStatus;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -31,11 +32,23 @@ public class IssueAnalysisService {
     private final KnowledgeSearchPort knowledgeSearchPort;
     private final AiAnalysisPort aiAnalysisPort;
     private final AnalysisCachePort analysisCachePort;
+    private final IssueAnalysisFailureService issueAnalysisFailureService;
 
     @Transactional
     public IssueAnalysisResult processAnalysis(Long issueId) {
         Issue issue = issueRepositoryPort.findById(issueId)
                 .orElseThrow(() -> new IssueNotFoundException(issueId));
+
+        if (issue.getStatus() == IssueStatus.ANALYZED) {
+            return issueAnalysisRepositoryPort.findLatestByIssueId(issueId)
+                    .map(analysis -> IssueResultMapper.toAnalysisResult(
+                            analysis,
+                            issueAnalysisRepositoryPort.findReferencesByAnalysisId(analysis.getId())
+                    ))
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Analyzed issue has no analysis result. issueId=" + issueId
+                    ));
+        }
 
         issue.startAnalysis();
         issueRepositoryPort.save(issue);
@@ -62,6 +75,7 @@ public class IssueAnalysisService {
                     aiResult.modelName(),
                     null
             ));
+            issueAnalysisRepositoryPort.saveReferences(savedAnalysis.getId(), references);
 
             issue.completeAnalysis();
             issueRepositoryPort.save(issue);
@@ -70,8 +84,10 @@ public class IssueAnalysisService {
             putAnalysisCache(issue.getId(), result);
             return result;
         } catch (RuntimeException e) {
-            issue.failAnalysis(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
-            issueRepositoryPort.save(issue);
+            issueAnalysisFailureService.markAnalysisFailed(
+                    issueId,
+                    e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()
+            );
             throw e;
         }
     }

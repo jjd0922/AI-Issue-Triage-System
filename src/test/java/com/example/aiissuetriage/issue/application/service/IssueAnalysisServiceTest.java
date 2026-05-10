@@ -3,6 +3,8 @@ package com.example.aiissuetriage.issue.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,6 +52,9 @@ class IssueAnalysisServiceTest {
     @Mock
     private AnalysisCachePort analysisCachePort;
 
+    @Mock
+    private IssueAnalysisFailureService issueAnalysisFailureService;
+
     @InjectMocks
     private IssueAnalysisService issueAnalysisService;
 
@@ -58,7 +63,7 @@ class IssueAnalysisServiceTest {
     void processAnalysis_whenIssueAnalysisRequested_thenAnalyzeAndCompleteIssue() {
         Issue issue = issue(IssueStatus.ANALYSIS_REQUESTED);
         List<KnowledgeSearchResult> references = List.of(
-                new KnowledgeSearchResult(100L, "결제 장애 대응 가이드", 0.8)
+                new KnowledgeSearchResult(100L, "결제 역할 가이드", 0.8)
         );
         IssueAnalysisResult aiResult = analysisResult(issue.getId(), references);
         IssueAnalysis savedAnalysis = analysis(issue.getId(), 1L);
@@ -72,6 +77,7 @@ class IssueAnalysisServiceTest {
 
         ArgumentCaptor<Issue> issueCaptor = ArgumentCaptor.forClass(Issue.class);
         verify(issueRepositoryPort, times(2)).save(issueCaptor.capture());
+        verify(issueAnalysisRepositoryPort).saveReferences(1L, references);
         verify(analysisCachePort).put(1L, result);
         assertThat(issueCaptor.getAllValues().get(1).getStatus()).isEqualTo(IssueStatus.ANALYZED);
         assertThat(result.issueId()).isEqualTo(1L);
@@ -80,8 +86,29 @@ class IssueAnalysisServiceTest {
     }
 
     @Test
-    @DisplayName("processAnalysis 는 AI 분석이 실패하면 이슈를 분석 실패 상태로 변경한다")
-    void processAnalysis_whenAiAnalysisFails_thenMarkIssueAsFailed() {
+    @DisplayName("processAnalysis 는 이미 분석 완료된 이슈이면 기존 분석 결과를 반환한다")
+    void processAnalysis_whenIssueAlreadyAnalyzed_thenReturnExistingAnalysisResult() {
+        Issue issue = issue(IssueStatus.ANALYZED);
+        IssueAnalysis analysis = analysis(issue.getId(), 10L);
+        List<KnowledgeSearchResult> references = List.of(new KnowledgeSearchResult(100L, "결제 역할 가이드", 0.8));
+        when(issueRepositoryPort.findById(1L)).thenReturn(Optional.of(issue));
+        when(issueAnalysisRepositoryPort.findLatestByIssueId(1L)).thenReturn(Optional.of(analysis));
+        when(issueAnalysisRepositoryPort.findReferencesByAnalysisId(10L)).thenReturn(references);
+
+        IssueAnalysisResult result = issueAnalysisService.processAnalysis(1L);
+
+        verify(issueRepositoryPort, never()).save(any(Issue.class));
+        verify(knowledgeSearchPort, never()).search(any(), anyInt());
+        verify(aiAnalysisPort, never()).analyze(any(AnalyzeIssueCommand.class));
+        assertThat(result.issueId()).isEqualTo(1L);
+        assertThat(result.analysisId()).isEqualTo(10L);
+        assertThat(result.category()).isEqualTo(IssueCategory.PAYMENT);
+        assertThat(result.references()).containsExactlyElementsOf(references);
+    }
+
+    @Test
+    @DisplayName("processAnalysis 는 AI 분석이 실패하면 별도 트랜잭션으로 실패 상태를 기록한다")
+    void processAnalysis_whenAiAnalysisFails_thenMarkIssueAsFailedInNewTransaction() {
         Issue issue = issue(IssueStatus.ANALYSIS_REQUESTED);
         when(issueRepositoryPort.findById(1L)).thenReturn(Optional.of(issue));
         when(knowledgeSearchPort.search("결제 오류", 5)).thenReturn(List.of());
@@ -92,11 +119,7 @@ class IssueAnalysisServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("AI failed");
 
-        ArgumentCaptor<Issue> issueCaptor = ArgumentCaptor.forClass(Issue.class);
-        verify(issueRepositoryPort, times(2)).save(issueCaptor.capture());
-        Issue savedIssue = issueCaptor.getAllValues().get(1);
-        assertThat(savedIssue.getStatus()).isEqualTo(IssueStatus.ANALYSIS_FAILED);
-        assertThat(savedIssue.getFailureReason()).isEqualTo("AI failed");
+        verify(issueAnalysisFailureService).markAnalysisFailed(1L, "AI failed");
     }
 
     private Issue issue(IssueStatus status) {
@@ -111,8 +134,8 @@ class IssueAnalysisServiceTest {
                 now,
                 now,
                 status == IssueStatus.ANALYSIS_REQUESTED ? now : null,
-                null,
-                null,
+                status == IssueStatus.ANALYZING ? now : null,
+                status == IssueStatus.ANALYZED ? now : null,
                 null
         );
     }
@@ -123,7 +146,7 @@ class IssueAnalysisServiceTest {
                 null,
                 IssueCategory.PAYMENT,
                 IssuePriority.CRITICAL,
-                "결제 후 주문 생성 실패",
+                "결제 및 주문 생성 실패",
                 "결제 이벤트와 주문 트랜잭션 로그를 확인합니다.",
                 0.9,
                 "mock-ai-analysis",
@@ -138,7 +161,7 @@ class IssueAnalysisServiceTest {
                 issueId,
                 IssueCategory.PAYMENT,
                 IssuePriority.CRITICAL,
-                "결제 후 주문 생성 실패",
+                "결제 및 주문 생성 실패",
                 "결제 이벤트와 주문 트랜잭션 로그를 확인합니다.",
                 0.9,
                 "mock-ai-analysis",
