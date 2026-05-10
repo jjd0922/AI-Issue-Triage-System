@@ -6,17 +6,25 @@ import static org.mockito.Mockito.verify;
 
 import com.example.aiissuetriage.issue.application.service.IssueAnalysisService;
 import java.time.LocalDateTime;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+@ExtendWith(MockitoExtension.class)
 class IssueAnalysisRequestedKafkaConsumerTest {
 
-    private final IssueAnalysisService issueAnalysisService = Mockito.mock(IssueAnalysisService.class);
-    private final IssueAnalysisRequestedKafkaConsumer consumer =
-            new IssueAnalysisRequestedKafkaConsumer(issueAnalysisService);
+    @Mock
+    private IssueAnalysisService issueAnalysisService;
+
+    @InjectMocks
+    private IssueAnalysisRequestedKafkaConsumer consumer;
 
     @Test
-    void 분석_요청_이벤트를_수신하면_분석_처리를_호출한다() {
+    @DisplayName("consume 은 분석 요청 이벤트를 수신하면 분석 처리를 호출한다")
+    void consume_whenAnalysisRequestedPayloadReceived_thenProcessAnalysis() {
         IssueAnalysisRequestedKafkaPayload payload = payload();
 
         consumer.consume(payload);
@@ -25,7 +33,8 @@ class IssueAnalysisRequestedKafkaConsumerTest {
     }
 
     @Test
-    void 분석_처리가_실패하면_예외를_다시_던진다() {
+    @DisplayName("consume 은 분석 처리가 실패하면 예외를 다시 던진다")
+    void consume_whenAnalysisProcessingFails_thenRethrowException() {
         IssueAnalysisRequestedKafkaPayload payload = payload();
         doThrow(new IllegalStateException("analysis failed"))
                 .when(issueAnalysisService)
