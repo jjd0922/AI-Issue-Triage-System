@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.example.aiissuetriage.issue.application.command.AnalyzeIssueCommand;
 import java.util.List;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class LlmIssueAnalysisAdapterTest {
@@ -11,7 +12,8 @@ class LlmIssueAnalysisAdapterTest {
     private final LlmIssueAnalysisAdapter adapter = new LlmIssueAnalysisAdapter();
 
     @Test
-    void LLM_어댑터는_아직_구현되지_않았다() {
+    @DisplayName("analyze 는 LLM 어댑터가 아직 구현되지 않았으면 예외를 던진다")
+    void analyze_whenLlmAdapterIsNotImplemented_thenThrowException() {
         assertThatThrownBy(() -> adapter.analyze(new AnalyzeIssueCommand(
                 1L,
                 "title",
