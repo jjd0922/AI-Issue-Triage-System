@@ -7,7 +7,6 @@ import com.example.aiissuetriage.issue.application.command.CreateIssueCommand;
 import com.example.aiissuetriage.issue.application.event.IssueAnalysisRequestedEvent;
 import com.example.aiissuetriage.issue.application.exception.InvalidRetryConditionException;
 import com.example.aiissuetriage.issue.application.port.AnalysisCachePort;
-import com.example.aiissuetriage.issue.application.port.IssueAnalysisRequestedEventPublisher;
 import com.example.aiissuetriage.issue.application.result.IssueAnalysisResult;
 import com.example.aiissuetriage.issue.application.result.RetryIssueAnalysisResult;
 import com.example.aiissuetriage.issue.domain.Issue;
@@ -18,16 +17,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 class IssueCommandServiceTest {
 
     private final InMemoryIssueRepository issueRepository = new InMemoryIssueRepository();
-    private final RecordingEventPublisher eventPublisher = new RecordingEventPublisher();
+    private final RecordingApplicationEventPublisher eventPublisher = new RecordingApplicationEventPublisher();
     private final RecordingAnalysisCache analysisCache = new RecordingAnalysisCache();
     private final IssueCommandService service = new IssueCommandService(
             issueRepository,
-            eventPublisher,
-            analysisCache
+            analysisCache,
+            eventPublisher
     );
 
     @Test
@@ -84,13 +84,15 @@ class IssueCommandServiceTest {
         );
     }
 
-    private static class RecordingEventPublisher implements IssueAnalysisRequestedEventPublisher {
+    private static class RecordingApplicationEventPublisher implements ApplicationEventPublisher {
 
         private final List<IssueAnalysisRequestedEvent> events = new ArrayList<>();
 
         @Override
-        public void publish(IssueAnalysisRequestedEvent event) {
-            events.add(event);
+        public void publishEvent(Object event) {
+            if (event instanceof IssueAnalysisRequestedEvent issueAnalysisRequestedEvent) {
+                events.add(issueAnalysisRequestedEvent);
+            }
         }
     }
 

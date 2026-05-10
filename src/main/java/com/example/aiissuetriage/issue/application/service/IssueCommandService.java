@@ -5,7 +5,6 @@ import com.example.aiissuetriage.issue.application.event.IssueAnalysisRequestedE
 import com.example.aiissuetriage.issue.application.exception.InvalidRetryConditionException;
 import com.example.aiissuetriage.issue.application.exception.IssueNotFoundException;
 import com.example.aiissuetriage.issue.application.port.AnalysisCachePort;
-import com.example.aiissuetriage.issue.application.port.IssueAnalysisRequestedEventPublisher;
 import com.example.aiissuetriage.issue.application.port.IssueRepositoryPort;
 import com.example.aiissuetriage.issue.application.result.CreateIssueResult;
 import com.example.aiissuetriage.issue.application.result.RetryIssueAnalysisResult;
@@ -16,6 +15,7 @@ import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,8 +26,8 @@ public class IssueCommandService {
     private static final Logger log = LoggerFactory.getLogger(IssueCommandService.class);
 
     private final IssueRepositoryPort issueRepositoryPort;
-    private final IssueAnalysisRequestedEventPublisher eventPublisher;
     private final AnalysisCachePort analysisCachePort;
+    private final ApplicationEventPublisher applicationEventPublisher;
 
     @Transactional
     public CreateIssueResult createIssue(CreateIssueCommand command) {
@@ -65,7 +65,7 @@ public class IssueCommandService {
 
     private void publishAnalysisRequestedEvent(Issue issue) {
         LocalDateTime requestedAt = issue.getAnalysisRequestedAt();
-        eventPublisher.publish(new IssueAnalysisRequestedEvent(
+        applicationEventPublisher.publishEvent(new IssueAnalysisRequestedEvent(
                 "evt-" + UUID.randomUUID(),
                 issue.getId(),
                 issue.getTitle(),
