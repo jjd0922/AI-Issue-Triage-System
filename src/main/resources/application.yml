@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: ai-issue-triage-system
+  profiles:
+    default: local
+
+---
+spring:
+  config:
+    activate:
+      on-profile: local
+  datasource:
+    url: jdbc:mysql://localhost:3306/ai_issue_triage?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    username: ai_issue
+    password: ai_issue
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+  docker:
+    compose:
+      file: docker-compose.yml
+      lifecycle-management: start_only
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: ai-issue-triage
+      auto-offset-reset: earliest
+    producer:
+      acks: all
+  data:
+    redis:
+      host: localhost
+      port: 6379
+
+server:
+  port: 8080
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
