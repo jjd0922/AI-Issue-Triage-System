@@ -6,6 +6,7 @@ import com.example.aiissuetriage.issue.application.port.IssueAnalysisRepositoryP
 import com.example.aiissuetriage.issue.application.port.IssueAnalysisRequestedEventPublisher;
 import com.example.aiissuetriage.issue.application.port.IssueRepositoryPort;
 import com.example.aiissuetriage.issue.application.port.KnowledgeSearchPort;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -39,6 +40,7 @@ class AiIssueTriageSystemApplicationTests {
     private AnalysisCachePort analysisCachePort;
 
     @Test
+    @DisplayName("Spring application context 가 로드된다")
     void contextLoads() {
     }
 }
