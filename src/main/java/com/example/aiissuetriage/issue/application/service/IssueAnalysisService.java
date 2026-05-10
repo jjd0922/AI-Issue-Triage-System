@@ -11,6 +11,7 @@ import com.example.aiissuetriage.issue.application.result.IssueAnalysisResult;
 import com.example.aiissuetriage.issue.application.result.KnowledgeSearchResult;
 import com.example.aiissuetriage.issue.domain.Issue;
 import com.example.aiissuetriage.issue.domain.IssueAnalysis;
+import com.example.aiissuetriage.issue.domain.IssueStatus;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -37,6 +38,14 @@ public class IssueAnalysisService {
     public IssueAnalysisResult processAnalysis(Long issueId) {
         Issue issue = issueRepositoryPort.findById(issueId)
                 .orElseThrow(() -> new IssueNotFoundException(issueId));
+
+        if (issue.getStatus() == IssueStatus.ANALYZED) {
+            return issueAnalysisRepositoryPort.findLatestByIssueId(issueId)
+                    .map(IssueResultMapper::toAnalysisResult)
+                    .orElseThrow(() -> new IllegalStateException(
+                            "Analyzed issue has no analysis result. issueId=" + issueId
+                    ));
+        }
 
         issue.startAnalysis();
         issueRepositoryPort.save(issue);

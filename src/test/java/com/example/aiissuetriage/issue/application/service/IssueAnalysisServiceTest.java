@@ -3,6 +3,8 @@ package com.example.aiissuetriage.issue.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -80,6 +82,24 @@ class IssueAnalysisServiceTest {
         assertThat(result.issueId()).isEqualTo(1L);
         assertThat(result.category()).isEqualTo(IssueCategory.PAYMENT);
         assertThat(result.references()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("processAnalysis 는 이미 분석 완료된 이슈이면 기존 분석 결과를 반환한다")
+    void processAnalysis_whenIssueAlreadyAnalyzed_thenReturnExistingAnalysisResult() {
+        Issue issue = issue(IssueStatus.ANALYZED);
+        IssueAnalysis analysis = analysis(issue.getId(), 10L);
+        when(issueRepositoryPort.findById(1L)).thenReturn(Optional.of(issue));
+        when(issueAnalysisRepositoryPort.findLatestByIssueId(1L)).thenReturn(Optional.of(analysis));
+
+        IssueAnalysisResult result = issueAnalysisService.processAnalysis(1L);
+
+        verify(issueRepositoryPort, never()).save(any(Issue.class));
+        verify(knowledgeSearchPort, never()).search(any(), anyInt());
+        verify(aiAnalysisPort, never()).analyze(any(AnalyzeIssueCommand.class));
+        assertThat(result.issueId()).isEqualTo(1L);
+        assertThat(result.analysisId()).isEqualTo(10L);
+        assertThat(result.category()).isEqualTo(IssueCategory.PAYMENT);
     }
 
     @Test
