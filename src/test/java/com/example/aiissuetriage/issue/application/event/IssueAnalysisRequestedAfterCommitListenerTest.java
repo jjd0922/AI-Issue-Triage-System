@@ -4,18 +4,25 @@ import static org.mockito.Mockito.verify;
 
 import com.example.aiissuetriage.issue.application.port.IssueAnalysisRequestedEventPublisher;
 import java.time.LocalDateTime;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
+@ExtendWith(MockitoExtension.class)
 class IssueAnalysisRequestedAfterCommitListenerTest {
 
-    private final IssueAnalysisRequestedEventPublisher eventPublisher =
-            Mockito.mock(IssueAnalysisRequestedEventPublisher.class);
-    private final IssueAnalysisRequestedAfterCommitListener listener =
-            new IssueAnalysisRequestedAfterCommitListener(eventPublisher);
+    @Mock
+    private IssueAnalysisRequestedEventPublisher eventPublisher;
+
+    @InjectMocks
+    private IssueAnalysisRequestedAfterCommitListener listener;
 
     @Test
-    void 트랜잭션_커밋_이후_분석_요청_이벤트를_발행한다() {
+    @DisplayName("publish 는 트랜잭션 커밋 이후 분석 요청 이벤트를 발행한다")
+    void publish_whenTransactionCommitted_thenPublishAnalysisRequestedEvent() {
         IssueAnalysisRequestedEvent event = new IssueAnalysisRequestedEvent(
                 "evt-1",
                 1L,

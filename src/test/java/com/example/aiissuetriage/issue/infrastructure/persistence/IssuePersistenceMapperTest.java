@@ -6,12 +6,14 @@ import com.example.aiissuetriage.issue.domain.Issue;
 import com.example.aiissuetriage.issue.domain.IssueSource;
 import com.example.aiissuetriage.issue.domain.IssueStatus;
 import java.time.LocalDateTime;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class IssuePersistenceMapperTest {
 
     @Test
-    void Issue를_Entity로_변환하고_다시_도메인으로_복원한다() {
+    @DisplayName("Issue 를 Entity 로 변환하고 다시 도메인으로 복원한다")
+    void toEntityAndToDomain_whenIssueExists_thenRestoreIssue() {
         LocalDateTime now = LocalDateTime.of(2026, 5, 9, 10, 0);
         Issue issue = Issue.restore(
                 1L,

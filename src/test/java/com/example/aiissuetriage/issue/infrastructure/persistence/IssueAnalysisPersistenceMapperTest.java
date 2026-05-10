@@ -6,19 +6,21 @@ import com.example.aiissuetriage.issue.domain.IssueAnalysis;
 import com.example.aiissuetriage.issue.domain.IssueCategory;
 import com.example.aiissuetriage.issue.domain.IssuePriority;
 import java.time.LocalDateTime;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class IssueAnalysisPersistenceMapperTest {
 
     @Test
-    void IssueAnalysis를_Entity로_변환하고_다시_도메인으로_복원한다() {
+    @DisplayName("IssueAnalysis 를 Entity 로 변환하고 다시 도메인으로 복원한다")
+    void toEntityAndToDomain_whenIssueAnalysisExists_thenRestoreIssueAnalysis() {
         LocalDateTime now = LocalDateTime.of(2026, 5, 9, 10, 0);
         IssueAnalysis analysis = IssueAnalysis.restore(
                 10L,
                 1L,
                 IssueCategory.PAYMENT,
                 IssuePriority.CRITICAL,
-                "결제 후 주문 생성 실패",
+                "결제 및 주문 생성 실패",
                 "결제 이벤트와 주문 트랜잭션 로그를 확인합니다.",
                 0.85,
                 "mock-ai-analysis",

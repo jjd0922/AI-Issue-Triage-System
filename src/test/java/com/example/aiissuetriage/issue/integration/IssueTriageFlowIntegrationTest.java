@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
@@ -40,13 +41,14 @@ import org.springframework.data.domain.Pageable;
 class IssueTriageFlowIntegrationTest {
 
     @Test
-    void 이슈_등록부터_분석_결과_조회까지_핵심_흐름이_동작한다() {
+    @DisplayName("이슈 등록부터 분석 결과 조회까지 통합 흐름이 동작한다")
+    void issueTriageFlow_whenIssueCreatedAndConsumed_thenReturnAnalysisResult() {
         InMemoryIssueRepository issueRepository = new InMemoryIssueRepository();
         InMemoryIssueAnalysisRepository analysisRepository = new InMemoryIssueAnalysisRepository();
         InMemoryAnalysisCache analysisCache = new InMemoryAnalysisCache();
         RecordingEventPublisher eventPublisher = new RecordingEventPublisher();
         KnowledgeSearchPort knowledgeSearchPort = (query, limit) -> List.of(
-                new KnowledgeSearchResult(100L, "결제 장애 대응 가이드", 1.0)
+                new KnowledgeSearchResult(100L, "결제 역할 가이드", 1.0)
         );
 
         IssueCommandService commandService = new IssueCommandService(
@@ -70,7 +72,7 @@ class IssueTriageFlowIntegrationTest {
         IssueAnalysisRequestedKafkaConsumer consumer = new IssueAnalysisRequestedKafkaConsumer(analysisService);
 
         CreateIssueResponse created = controller.createIssue(new CreateIssueRequest(
-                "결제는 완료됐는데 주문이 생성되지 않았습니다.",
+                "결제가 완료됐는데 주문이 생성되지 않았습니다.",
                 "고객은 결제 성공 문자를 받았지만 주문 내역이 비어 있습니다.",
                 IssueSource.CUSTOMER_SERVICE
         )).getBody();
