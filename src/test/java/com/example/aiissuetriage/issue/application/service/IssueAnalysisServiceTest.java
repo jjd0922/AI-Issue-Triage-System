@@ -77,6 +77,7 @@ class IssueAnalysisServiceTest {
 
         ArgumentCaptor<Issue> issueCaptor = ArgumentCaptor.forClass(Issue.class);
         verify(issueRepositoryPort, times(2)).save(issueCaptor.capture());
+        verify(issueAnalysisRepositoryPort).saveReferences(1L, references);
         verify(analysisCachePort).put(1L, result);
         assertThat(issueCaptor.getAllValues().get(1).getStatus()).isEqualTo(IssueStatus.ANALYZED);
         assertThat(result.issueId()).isEqualTo(1L);
@@ -89,8 +90,10 @@ class IssueAnalysisServiceTest {
     void processAnalysis_whenIssueAlreadyAnalyzed_thenReturnExistingAnalysisResult() {
         Issue issue = issue(IssueStatus.ANALYZED);
         IssueAnalysis analysis = analysis(issue.getId(), 10L);
+        List<KnowledgeSearchResult> references = List.of(new KnowledgeSearchResult(100L, "결제 역할 가이드", 0.8));
         when(issueRepositoryPort.findById(1L)).thenReturn(Optional.of(issue));
         when(issueAnalysisRepositoryPort.findLatestByIssueId(1L)).thenReturn(Optional.of(analysis));
+        when(issueAnalysisRepositoryPort.findReferencesByAnalysisId(10L)).thenReturn(references);
 
         IssueAnalysisResult result = issueAnalysisService.processAnalysis(1L);
 
@@ -100,6 +103,7 @@ class IssueAnalysisServiceTest {
         assertThat(result.issueId()).isEqualTo(1L);
         assertThat(result.analysisId()).isEqualTo(10L);
         assertThat(result.category()).isEqualTo(IssueCategory.PAYMENT);
+        assertThat(result.references()).containsExactlyElementsOf(references);
     }
 
     @Test

@@ -57,7 +57,10 @@ public class IssueQueryService {
 
     private IssueAnalysisResult findAnalysisFromRepository(Long issueId) {
         IssueAnalysisResult result = issueAnalysisRepositoryPort.findLatestByIssueId(issueId)
-                .map(IssueResultMapper::toAnalysisResult)
+                .map(analysis -> IssueResultMapper.toAnalysisResult(
+                        analysis,
+                        issueAnalysisRepositoryPort.findReferencesByAnalysisId(analysis.getId())
+                ))
                 .orElseThrow(() -> new IssueAnalysisNotFoundException(issueId));
 
         putCache(issueId, result);

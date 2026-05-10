@@ -41,7 +41,10 @@ public class IssueAnalysisService {
 
         if (issue.getStatus() == IssueStatus.ANALYZED) {
             return issueAnalysisRepositoryPort.findLatestByIssueId(issueId)
-                    .map(IssueResultMapper::toAnalysisResult)
+                    .map(analysis -> IssueResultMapper.toAnalysisResult(
+                            analysis,
+                            issueAnalysisRepositoryPort.findReferencesByAnalysisId(analysis.getId())
+                    ))
                     .orElseThrow(() -> new IllegalStateException(
                             "Analyzed issue has no analysis result. issueId=" + issueId
                     ));
@@ -72,6 +75,7 @@ public class IssueAnalysisService {
                     aiResult.modelName(),
                     null
             ));
+            issueAnalysisRepositoryPort.saveReferences(savedAnalysis.getId(), references);
 
             issue.completeAnalysis();
             issueRepositoryPort.save(issue);

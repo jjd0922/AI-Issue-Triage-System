@@ -155,6 +155,7 @@ class IssueTriageFlowIntegrationTest {
 
         private final AtomicLong sequence = new AtomicLong(1);
         private final Map<Long, IssueAnalysis> analyses = new LinkedHashMap<>();
+        private final Map<Long, List<KnowledgeSearchResult>> references = new LinkedHashMap<>();
 
         @Override
         public IssueAnalysis save(IssueAnalysis analysis) {
@@ -166,11 +167,21 @@ class IssueTriageFlowIntegrationTest {
         }
 
         @Override
+        public void saveReferences(Long analysisId, List<KnowledgeSearchResult> references) {
+            this.references.put(analysisId, List.copyOf(references));
+        }
+
+        @Override
         public Optional<IssueAnalysis> findLatestByIssueId(Long issueId) {
             return analyses.values()
                     .stream()
                     .filter(analysis -> analysis.getIssueId().equals(issueId))
                     .findFirst();
+        }
+
+        @Override
+        public List<KnowledgeSearchResult> findReferencesByAnalysisId(Long analysisId) {
+            return references.getOrDefault(analysisId, List.of());
         }
 
         private IssueAnalysis withId(IssueAnalysis analysis, Long id) {

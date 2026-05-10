@@ -10,6 +10,7 @@ import com.example.aiissuetriage.issue.application.port.AnalysisCachePort;
 import com.example.aiissuetriage.issue.application.port.IssueAnalysisRepositoryPort;
 import com.example.aiissuetriage.issue.application.port.IssueRepositoryPort;
 import com.example.aiissuetriage.issue.application.result.IssueAnalysisResult;
+import com.example.aiissuetriage.issue.application.result.KnowledgeSearchResult;
 import com.example.aiissuetriage.issue.domain.Issue;
 import com.example.aiissuetriage.issue.domain.IssueAnalysis;
 import com.example.aiissuetriage.issue.domain.IssueCategory;
@@ -58,7 +59,8 @@ class IssueQueryServiceTest {
     @Test
     @DisplayName("getAnalysis 는 캐시가 없으면 DB에서 조회하고 캐시에 저장한다")
     void getAnalysis_whenCacheMiss_thenFindFromRepositoryAndPutCache() {
-        IssueAnalysis analysis = IssueAnalysis.create(
+        IssueAnalysis analysis = IssueAnalysis.restore(
+                10L,
                 1L,
                 IssueCategory.PAYMENT,
                 IssuePriority.CRITICAL,
@@ -66,14 +68,19 @@ class IssueQueryServiceTest {
                 "recommendation",
                 0.9,
                 "mock-ai-analysis",
-                "{}"
+                "{}",
+                LocalDateTime.now()
         );
         when(analysisCachePort.get(1L)).thenReturn(Optional.empty());
         when(issueAnalysisRepositoryPort.findLatestByIssueId(1L)).thenReturn(Optional.of(analysis));
+        when(issueAnalysisRepositoryPort.findReferencesByAnalysisId(analysis.getId())).thenReturn(List.of(
+                new KnowledgeSearchResult(100L, "결제 역할 가이드", 0.8)
+        ));
 
         IssueAnalysisResult result = issueQueryService.getAnalysis(1L);
 
         assertThat(result.issueId()).isEqualTo(1L);
+        assertThat(result.references()).containsExactly(new KnowledgeSearchResult(100L, "결제 역할 가이드", 0.8));
         verify(analysisCachePort).put(1L, result);
     }
 

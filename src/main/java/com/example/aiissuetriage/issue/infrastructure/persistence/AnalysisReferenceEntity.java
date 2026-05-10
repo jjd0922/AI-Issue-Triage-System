@@ -32,4 +32,18 @@ public class AnalysisReferenceEntity {
 
     @Column(nullable = false)
     private LocalDateTime createdAt;
+
+    public AnalysisReferenceEntity(
+            Long id,
+            Long issueAnalysisId,
+            Long knowledgeDocumentId,
+            double score,
+            LocalDateTime createdAt
+    ) {
+        this.id = id;
+        this.issueAnalysisId = issueAnalysisId;
+        this.knowledgeDocumentId = knowledgeDocumentId;
+        this.score = score;
+        this.createdAt = createdAt;
+    }
 }
