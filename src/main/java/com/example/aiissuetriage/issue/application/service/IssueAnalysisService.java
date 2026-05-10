@@ -31,6 +31,7 @@ public class IssueAnalysisService {
     private final KnowledgeSearchPort knowledgeSearchPort;
     private final AiAnalysisPort aiAnalysisPort;
     private final AnalysisCachePort analysisCachePort;
+    private final IssueAnalysisFailureService issueAnalysisFailureService;
 
     @Transactional
     public IssueAnalysisResult processAnalysis(Long issueId) {
@@ -70,8 +71,10 @@ public class IssueAnalysisService {
             putAnalysisCache(issue.getId(), result);
             return result;
         } catch (RuntimeException e) {
-            issue.failAnalysis(e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage());
-            issueRepositoryPort.save(issue);
+            issueAnalysisFailureService.markAnalysisFailed(
+                    issueId,
+                    e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage()
+            );
             throw e;
         }
     }

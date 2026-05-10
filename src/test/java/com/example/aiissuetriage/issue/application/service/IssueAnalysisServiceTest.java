@@ -50,6 +50,9 @@ class IssueAnalysisServiceTest {
     @Mock
     private AnalysisCachePort analysisCachePort;
 
+    @Mock
+    private IssueAnalysisFailureService issueAnalysisFailureService;
+
     @InjectMocks
     private IssueAnalysisService issueAnalysisService;
 
@@ -58,7 +61,7 @@ class IssueAnalysisServiceTest {
     void processAnalysis_whenIssueAnalysisRequested_thenAnalyzeAndCompleteIssue() {
         Issue issue = issue(IssueStatus.ANALYSIS_REQUESTED);
         List<KnowledgeSearchResult> references = List.of(
-                new KnowledgeSearchResult(100L, "결제 장애 대응 가이드", 0.8)
+                new KnowledgeSearchResult(100L, "결제 역할 가이드", 0.8)
         );
         IssueAnalysisResult aiResult = analysisResult(issue.getId(), references);
         IssueAnalysis savedAnalysis = analysis(issue.getId(), 1L);
@@ -80,8 +83,8 @@ class IssueAnalysisServiceTest {
     }
 
     @Test
-    @DisplayName("processAnalysis 는 AI 분석이 실패하면 이슈를 분석 실패 상태로 변경한다")
-    void processAnalysis_whenAiAnalysisFails_thenMarkIssueAsFailed() {
+    @DisplayName("processAnalysis 는 AI 분석이 실패하면 별도 트랜잭션으로 실패 상태를 기록한다")
+    void processAnalysis_whenAiAnalysisFails_thenMarkIssueAsFailedInNewTransaction() {
         Issue issue = issue(IssueStatus.ANALYSIS_REQUESTED);
         when(issueRepositoryPort.findById(1L)).thenReturn(Optional.of(issue));
         when(knowledgeSearchPort.search("결제 오류", 5)).thenReturn(List.of());
@@ -92,11 +95,7 @@ class IssueAnalysisServiceTest {
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("AI failed");
 
-        ArgumentCaptor<Issue> issueCaptor = ArgumentCaptor.forClass(Issue.class);
-        verify(issueRepositoryPort, times(2)).save(issueCaptor.capture());
-        Issue savedIssue = issueCaptor.getAllValues().get(1);
-        assertThat(savedIssue.getStatus()).isEqualTo(IssueStatus.ANALYSIS_FAILED);
-        assertThat(savedIssue.getFailureReason()).isEqualTo("AI failed");
+        verify(issueAnalysisFailureService).markAnalysisFailed(1L, "AI failed");
     }
 
     private Issue issue(IssueStatus status) {
@@ -111,8 +110,8 @@ class IssueAnalysisServiceTest {
                 now,
                 now,
                 status == IssueStatus.ANALYSIS_REQUESTED ? now : null,
-                null,
-                null,
+                status == IssueStatus.ANALYZING ? now : null,
+                status == IssueStatus.ANALYZED ? now : null,
                 null
         );
     }
@@ -123,7 +122,7 @@ class IssueAnalysisServiceTest {
                 null,
                 IssueCategory.PAYMENT,
                 IssuePriority.CRITICAL,
-                "결제 후 주문 생성 실패",
+                "결제 및 주문 생성 실패",
                 "결제 이벤트와 주문 트랜잭션 로그를 확인합니다.",
                 0.9,
                 "mock-ai-analysis",
@@ -138,7 +137,7 @@ class IssueAnalysisServiceTest {
                 issueId,
                 IssueCategory.PAYMENT,
                 IssuePriority.CRITICAL,
-                "결제 후 주문 생성 실패",
+                "결제 및 주문 생성 실패",
                 "결제 이벤트와 주문 트랜잭션 로그를 확인합니다.",
                 0.9,
                 "mock-ai-analysis",

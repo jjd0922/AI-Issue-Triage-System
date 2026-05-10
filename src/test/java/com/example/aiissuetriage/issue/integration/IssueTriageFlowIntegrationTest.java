@@ -11,6 +11,7 @@ import com.example.aiissuetriage.issue.application.port.KnowledgeSearchPort;
 import com.example.aiissuetriage.issue.application.result.IssueAnalysisResult;
 import com.example.aiissuetriage.issue.application.result.KnowledgeSearchResult;
 import com.example.aiissuetriage.issue.application.service.IssueAnalysisService;
+import com.example.aiissuetriage.issue.application.service.IssueAnalysisFailureService;
 import com.example.aiissuetriage.issue.application.service.IssueCommandService;
 import com.example.aiissuetriage.issue.application.service.IssueQueryService;
 import com.example.aiissuetriage.issue.domain.Issue;
@@ -61,7 +62,8 @@ class IssueTriageFlowIntegrationTest {
                 analysisRepository,
                 knowledgeSearchPort,
                 new MockAiAnalysisAdapter(),
-                analysisCache
+                analysisCache,
+                new IssueAnalysisFailureService(issueRepository)
         );
         IssueQueryService queryService = new IssueQueryService(
                 issueRepository,
